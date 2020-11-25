@@ -62,10 +62,10 @@ cd your-project-name
 
 ### 2. Store the public key in an environment variable file
 
-Copy the template `.env.example` at the root of your project, and call it `.env`.
+Create a `.env` to store the public key.
 
 ```bash
-cp .env.example .env
+touch .env
 ```
 
 Open up your the `.env` file and add your Chec public key:
