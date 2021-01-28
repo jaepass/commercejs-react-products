@@ -171,7 +171,7 @@ class App extends Component {
 export default App;
 ```
 
-In React, when a component is created, the constructor is the first method called. Initializing your state in
+In React, class based component when a component is created, the constructor is the first method called. Initializing your state in
 the constructor will allow you to store data on the component's instance when it's created. You'll initialize `products`
 as an empty array in your app to be able to store the product data later on.
 
@@ -209,7 +209,7 @@ componentDidMount() {
 As you are loading data from a remote API, the `fetchProducts()` function needs to be invoked to update the
 state with the returned products in order to then use that data for your product list. Speaking of render,
 you are going to need one of the core React functions `render()`. Without `render()` and a `return` statement, nothing
-would get logged onto your frontend. Below is the expected returned data (abbreviated):
+would get rendered onto your frontend. Below is the expected returned data (abbreviated):
 
 ```json
 [
