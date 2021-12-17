@@ -108,13 +108,33 @@ functions or some form of data.
 
 import Commerce from '@chec/commerce.js';
 
-export const commerce = new Commerce(process.env.REACT_APP_CHEC_PUBLIC_KEY, true);
+const checAPIKey = process.env.REACT_APP_CHEC_PUBLIC_KEY;
+const devEnvironment = process.env.NODE_ENV === 'development';
+
+const commerceConfig = {
+  axiosConfig: {
+    headers: {
+      'X-Chec-Agent': 'commerce.js/v2',
+      'Chec-Version': '2021-09-29',
+    },
+  },
+};
+
+if (devEnvironment && !checAPIKey) {
+  throw Error('Your public API key must be provided as an environment variable named NEXT_PUBLIC_CHEC_PUBLIC_KEY. Obtain your Chec public key by logging into your Chec account and navigate to Setup > Developer, or can be obtained with the Chec CLI via with the command chec whoami');
+}
+
+export default new Commerce(
+  checAPIKey,
+  devEnvironment,
+  commerceConfig,
+);
 ```
 
 Above, you've imported the `Commerce` object, then exported the instance with your Chec API key provided via an
 environment variable. The public key is needed to give you access to data via the Chec API.
 
-You might want to throw an error if the public key isn't available, since it will probably make your application
+A good idea is to throw throw an error if the public key isn't available, since it will probably make your application
 unusable.
 
 ### 3. The commerce object
@@ -136,29 +156,17 @@ You can now start to make requests to fetch data from Chec to list your product 
 
 ### 1. Fetch our products data
 
-One of the main resources in Chec is the [Products](https://commercejs.com/docs/sdk/products) endpoint. Commerce.js
-makes it seamless to fetch product data with its promise-based
-[method](https://commercejs.com/docs/sdk/products#list-products) `commerce.products.list()`. This request would make a
-call to the `GET v1/products` API endpoint and return a list of product data. Open up your
-`App.js` file and start making our first Commerce.js request.
+One of the main resources in Chec is the Products endpoint. Commerce.js makes it seamless to fetch product data with its promise-based method `commerce.products.list()`. This request would make a call to the `GET v1/products` API endpoint and return a list of product data. Open up your `App.js` file and delete the code that came with creating a new React app and we will write this file from scratch.
 
-First, delete the code that came with creating a new React app and write this file from scratch.
-Import `commerce` as well as a `ProductsList` component which you'll create in the next
-section. While there, initialize an empty array `products` state in your constructor.
+Let's get to writing out our first functional component in `App.js`. Import commerce as well as a new module, `useState` which is the first React hook we'll be using to make our function component stateful. The first two API endpoint we will want to work with is the Products and Merchant endpoint. The Products endpoint will allow us to work with data such as the product name, product price, product description etc. The Merchant endpoint will contain information such as the e-commerce business name and contact details.
 
 ```js
-import React, { Component } from 'react';
-import { commerce } from './lib/commerce';
+import React, { useState } from 'react';
+import commerce from './lib/commerce';
 import ProductsList from './components/ProductsList';
 
-class App extends Component {
-  constructor(props) {
-    super(props);
-
-    this.state = {
-      products: [],
-    }
-  }
+const App = () => {
+  const [products, setProducts] = useState([]);
 
   render() {
     return (
@@ -171,285 +179,181 @@ class App extends Component {
 export default App;
 ```
 
-In React, when a component is created, the constructor is the first method called. Initializing your state in
-the constructor will allow you to store data on the component's instance when it's created. You'll initialize `products`
-as an empty array in your app to be able to store the product data later on.
+After the opening of our `App` function, we need to destructure and return `products` and a method `setProducts` from the function `useState`. `useState` returns a tuple, which is an array with two items, in this case an initial value and a function that will update that value. The argument we will pass in to `useState` is the initial value of an empty array to be able to store the product data in it when we fetch the data. We follow the same pattern for the Merchant value, but instead we will pass in an empty object as an argument to `useState`.
 
-You can now make your first Commerce.js request! Create a function called `fetchProducts()` in the component and
-make a request to the products endpoint using the Commerce.js method `commerce.products.list()`.
+💡 **Tip**
+
+`useState` allows us to make function components stateful. This means that the components has the ability to keep track of changing data. You might ask why would be want to keep track of changing data. Any commerce store needs to have the ability to update its products listing in real-time. Be it new products being added, products being sold out, or products being taken off. The API data constantly will get updated, therefore the UI has to be reactive.
+
+You can now make your first Commerce.js request! Create a function called `fetchProducts()` in the component and make a request to the products endpoint using the Commerce.js method `commerce.products.list()`.
+
 
 ```jsx
 /**
  * Fetch products data from Chec and stores in the products data object.
  * https://commercejs.com/docs/sdk/products
  */
-fetchProducts() {
+const fetchProducts = () => {
   commerce.products.list().then((products) => {
-    this.setState({ products: products.data });
+    setProducts(products.data);
   }).catch((error) => {
-    console.log('There was an error fetching the products', error);
+    console.log('There was an error fetching the products', error)
   });
 }
 ```
 
-Inside the function, use the `commerce` object to access the `products.list()` method for access to product data. [`commerce.products.list()`](https://commercejs.com/docs/sdk/products#list-products) is a
-promise-based function call that will resolve the request and `then()` sets the response data with `this.setState()` into
-the `products` state key created earlier in the component's constructor. The `catch()` method catches any errors in the
-case that the request to the server fails.
+Inside the function, we use the `commerce` object to access the `products.list()` method for access to product data. [`commerce.products.list()`](https://commercejs.com/docs/sdk/products#list-products) is a promise-based function call that will resolve the request and `then()` sets the response data with `setProducts` into the `products` state key created earlier. In Chec, product is returned in an object called `data`, which is why we set the response as `product.data`. The `catch()` method catches any errors in the case that the request to the server fails.
 
-Of course simply creating the function does not do anything as you have yet to call this function. When the app
-component mounts to the DOM, use the lifecycle hook `componentDidMount()` to fetch your data.
+Of course simply creating the functions do not do anything as you have yet to call them. When the app component mounts to the DOM, we will use our next React hook `useEffect()` to call the fetching of data. It is a React lifecycle hook also known as side effects, that helps to call functions after the component first renders to the DOM and also anytime the DOM updates. Since we are loading data from a remote endpoint, we want to invoke the `fetchProducts()` function to update the state with the returned products so that we can render our updated data.
 
-```jsx
-componentDidMount() {
-  this.fetchProducts();
-}
-```
+First import `useEffect` from React in our import statement at the very top `import React, { useState, useEffect } from 'react';`.
 
-As you are loading data from a remote API, the `fetchProducts()` function needs to be invoked to update the
-state with the returned products in order to then use that data for your product list. Speaking of render,
-you are going to need one of the core React functions `render()`. Without `render()` and a `return` statement, nothing
-would get logged onto your frontend. Below is the expected returned data (abbreviated):
-
-```json
-[
-  {
-    "id": "prod_NqKE50BR4wdgBL",
-    "created": 1594075580,
-    "last_updated": 1599691862,
-    "active": true,
-    "permalink": "TSUTww",
-    "name": "Kettle",
-    "description": "<p>Black stove-top kettle</p>",
-    "price": {
-      "raw": 45.5,
-      "formatted": "45.50",
-      "formatted_with_symbol": "$45.50",
-      "formatted_with_code": "45.50 USD"
-    },
-    "quantity": 0,
-    "media": {
-      "type": "image",
-      "source": "https://cdn.chec.io/merchants/18462/images/676785cedc85f69ab27c42c307af5dec30120ab75f03a9889ab29|u9 1.png"
-    },
-    "sku": null,
-    "meta": null,
-    "conditionals": {
-      "is_active": true,
-      "is_free": false,
-      "is_tax_exempt": false,
-      "is_pay_what_you_want": false,
-      "is_quantity_limited": false,
-      "is_sold_out": false,
-      "has_digital_delivery": false,
-      "has_physical_delivery": false,
-      "has_images": true,
-      "has_video": false,
-      "has_rich_embed": false,
-      "collects_fullname": false,
-      "collects_shipping_address": false,
-      "collects_billing_address": false,
-      "collects_extrafields": false
-    },
-    "is": {
-      "active": true,
-      "free": false,
-      "tax_exempt": false,
-      "pay_what_you_want": false,
-      "quantity_limited": false,
-      "sold_out": false
-    },
-    "has": {
-      "digital_delivery": false,
-      "physical_delivery": false,
-      "images": true,
-      "video": false,
-      "rich_embed": false
-    },
-    "collects": {
-      "fullname": false,
-      "shipping_address": false,
-      "billing_address": false,
-      "extrafields": false
-    },
-    "checkout_url": {
-      "checkout": "https://checkout.chec.io/TSUTww?checkout=true",
-      "display": "https://checkout.chec.io/TSUTww"
-    },
-    "extrafields": [],
-    "variants": [],
-    "categories": [
-      {
-        "id": "cat_3zkK6oLvVlXn0Q",
-        "slug": "office",
-        "name": "Home office"
-      }
-    ],
-    "assets": [
-      {
-        "id": "ast_7ZAMo1Mp7oNJ4x",
-        "url": "https://cdn.chec.io/merchants/18462/images/676785cedc85f69ab27c42c307af5dec30120ab75f03a9889ab29|u9 1.png",
-        "is_image": true,
-        "data": [],
-        "meta": [],
-        "created_at": 1594075541,
-        "merchant_id": 18462
-      }
-    ]
-  },
-]
-```
-
-With the product data you will be able to use the various product properties such as `product.name` to render
-a product detail component, which you'll get to in the next section. Now add the empty `<ProductsList
-/>` component to your render function:
+Then we can use the function like so:
 
 ```jsx
-render() {
-  const { products } = this.state;
-
-  return (
-    <div className="app">
-      <ProductsList />
-    </div>
-  );
-}
+useEffect(() => {
+  fetchProducts();
+}, []);
 ```
 
-Destructure `products` from state to make it a little cleaner. You'll need to pass the `products` property as an argument
- to your `ProductsList` component. This means that the value of the `ProductsList` component's prop
-`products` will be resolved from the parent (`App`) component's state, and will update automatically whenever it changes.
+Above, we pass in our effect as a function `fetchProducts()` and also by leaving the second argument array empty, this method will run once before the initial render.
 
+With returned product data object containing all the property endpoints such as the product name, the product description, product price or any uploaded variants or assets. This data is exposed when you make a request to the API. As mentioned above, Commerce.js is a Software Development Kit(SDK) that comes with abstracted axios promise-based function calls that will help to fetch data from the endpoints. The public key access that we briefed over above is a public token key from a merchant store. This account already has products and products information uploaded to the Chec dashboard for us to run a demo store with. You now go back to `App.js` and include the `ProductsList` component.
+
+```jsx
+return (
+  <div className="app">
+    <ProductsList />
+  </div>
+);
+```
 ### 2. Create our product item component
 
-The nature of React and most modern JavaScript frameworks is to separate your code into components. Components are a way to encapsulate a group of
-elements for reuse throughout your application. You'll be creating two components for products, one
-will be for the single product item and another for the list of product items.
+The nature of React and most modern JavaScript frameworks is to separate your code into components. Components are a way to encapsulate a group of elements for reuse throughout your application. You'll be creating two components for products, one will be for the single product item and another for the list of product items. In your components, we will also start to deal with props. Props are used to pass data from parent components down to the child components.
+As your app grows, it is generally good practice to validate your props for type checking and debugging. We will install the `prop-types` library to do so.
 
-Start by creating a class component and name it `ProductItem.js` in `src/components`. This component will render the
-individual product card. In your render function destructure `product` from your props. You will reference this
-property to access each product's image, name, description, and price via `.media.source`, `.name`, `.description` and
-`.price` in the return statement.
+```bash
+yarn add prop-types
+# OR
+npm install prop-types
+```
+
+Now lets create a component `ProductItem.js` and start by creating a function component and name it `ProductItem`. This component will render the individual product card. We then pass in the `product` parameter which the parent component will parse out as each individual product item. You will reference this property to access each product's image, name, description, and price via `.image.url`, `.name`, `.description` and `.price` in the return statement.
 
 Product descriptions return HTML. To strip HTML from the product description string, using [this `string-strip-html`](https://codsen.com/os/string-strip-html/) handy library will do the trick. Install this library by running `yarn add string-strip-html` or `npm i string-strip-html`. After installing, import the module in and pass in the product description to the `stripHtml` function.
 
 ```jsx
 import React, { Component } from "react";
 import stripHtml from 'string-strip-html';
+import PropTypes from 'prop-types';
 
-class ProductItem extends Component {
-  render() {
-    const { product } = this.props
-    const { result } = stripHtml(product.description);
+const ProductItem = ({ product }) => {
 
-    return (
-      <div className="product__card">
-        <img className="product__image" src={product.media.source} alt={product.name} />
-        <div className="product__info">
-          <h4 className="product__name">{product.name}</h4>
-          <p className="product__description">
-            {/* product description stripped of html tags */}
-            {result}
-          </p>
-          <div className="product__details">
-            <p className="product__price">
+  const { result } = stripHtml(product.description);
+
+  return (
+    <div className="product__card">
+      <img className="product__image" src={product.image?.url} alt={product.name} />
+      <div className="product__info">
+        <h4 className="product__name">{product.name}</h4>
+        <p className="product__description">
+          {/* product description stripped of html tags */}
+          {result}
+        </p>
+        <div className="product__details">
+          <p className="product__price">
             {product.price.formatted_with_symbol}
-            </p>
-          </div>
+          </p>
         </div>
       </div>
-    );
-  }
+    </div> 
+  );
 };
+
+ProductItem.propTypes = {
+  product: PropTypes.object,
+};
+
 export default ProductItem;
 ```
 
-As you saw earlier in the abbreviated JSON, the returned product data object comes with all the information that you
+If you look at the returned data in your products request, the data object comes with all the information that you
 need to build a product listing view. In the code snippet above, your `product` prop is being used to access the various
-properties. First, render an image tag with the `src` value of `product.media.source` as the values inside the curly
+properties. First, render an image tag with the `src` value of `product.image?.source` as the values inside the curly
 braces dynamically binds to the attributes.
 
 ### 3. Create our products list component
 
-It's now time to create a `ProductsList.js` component inside `src/components`. The `ProductsList` component will be another
-class component which will loop through and render a list of `ProductItem` components.
+It's now time to create a `ProductsList.js` component inside `src/components`. The `ProductsList` component will be another function component which will loop through and render a list of `ProductItem` components.
 
 First, import in the `ProductItem` component. Next, define a `products` prop. This will be provided by the parent component.
-In your return statement you need to use the `map` function
-to render a `ProductItem` component for each product in your `products` prop. You also
-need to pass in a unique identifier (`product.id`) as the `key` attribute - React will use it to determine which
-items in a list have changed and which parts of your application need to be re-rendered.
+
+In your return statement you need to use the `map` function to render a `ProductItem` component for each product in your `products` prop. You also need to pass in a unique identifier (`product.id`) as the `key` attribute - React will use it to determine which items in a list have changed and which parts of your application need to be re-rendered.
 
 ```js
-import React, { Component } from 'react';
+import React from 'react';
+import PropTypes from 'prop-types';
 import ProductItem from './ProductItem';
 
-class ProductsList extends Component {
-  render() {
-    const { products } = this.props;
+const ProductsList = ({ products }) => {
 
     return (
-      <div className="products">
-        {products.map((product) => (
-          <ProductItem
-            key={product.id}
-            product={product}
-          />
-        ))}
-      </div>
+        <div className="products" id="products">
+            { products.map((product) => (
+                <ProductItem
+                    key={product.id}
+                    product={product}
+                />
+            ))}
+        </div>
     );
-  }
-}
+};
+
+ProductsList.propTypes = {
+    products: PropTypes.array,
+};
 
 export default ProductsList;
 ```
 
 This component will be a bit bare-boned for now except for looping through a `ProductItem` component.
 
-With both your product item and list components created, go back to `App.js` to render the
-`<ProductsList />` and pass in the `products` prop with the returned product data as the value.
+With both your product item and list components created, go back to `App.js` to render the `<ProductsList />` and pass in the `products` prop with the returned product data as the value. This means that the value of the `ProductsList` component's prop `products` will be resolved from the parent (`App`) component's state, and will update automatically whenever it changes.
 
 ```js
-import React, { Component } from 'react';
-import { commerce } from './lib/commerce';
+import React, { useState, useEffect } from "react";
+import commerce from './lib/Commerce';
+
+import './styles/scss/styles.scss';
+
 import ProductsList from './components/ProductsList';
 
-class App extends Component {
-  constructor(props) {
-    super(props);
+const App = () => {
+  const [products, setProducts] = useState([]);
 
-    this.state = {
-      products: [],
-    }
-  }
-
-  componentDidMount() {
-    this.fetchProducts();
-  };
+  useEffect(() => {
+    fetchProducts();
+  }, []);
 
   /**
    * Fetch products data from Chec and stores in the products data object.
    * https://commercejs.com/docs/sdk/products
    */
-  fetchProducts() {
+  const fetchProducts = () => {
     commerce.products.list().then((products) => {
-      this.setState({ products: products.data });
+      setProducts(products.data);
     }).catch((error) => {
-      console.log('There was an error fetching the products', error);
+      console.log('There was an error fetching the products', error)
     });
   }
 
-  render() {
-    const { products } = this.state;
-
-    return (
-      <div className="app">
-        <ProductsList
-          products={products}
-        />
-      </div>
-    );
-  }
+  return (
+    <div className="app">
+      <ProductsList 
+        products={products}
+      />
+    </div>
+  )
 };
 
 export default App;
@@ -457,11 +361,10 @@ export default App;
 
 Your final `App.js` component should look like the above code block. If you want to build in a loading state while
 your products load, you could add `loading: true` to your initial state, have `fetchProducts()` change this to false
-when the promise resolves, and add something like this to your render function:
+when the promise resolves, and add something like this to your component:
 
 ```jsx
 render() {
-  const { products, loading } = this.state;
   if (loading) {
     return <p>Loading...</p>;
   }

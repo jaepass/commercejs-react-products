@@ -1,30 +1,34 @@
-import React, { Component } from "react";
-import { commerce } from './lib/Commerce';
-import './styles/scss/styles.scss'
+import React, { useState, useEffect } from 'react';
+import commerce from './lib/commerce';
+
+import './styles/scss/styles.scss';
 
 import Hero from './components/Hero';
-import ProductsList from "./components/ProductsList";
+import ProductsList from './components/ProductsList';
 
-class App extends Component {
-  constructor(props) {
-    super(props);
+const App = () => {
+  const [merchant, setMerchant] = useState({});
+  const [products, setProducts] = useState([]);
 
-    this.state = {
-      merchant: {},
-      products: [],
-    }
-  }
+  // Because React rendering can be triggered for many different reasons, 
+  // it is best practice to wrap our commerce object method calls into a 
+  // useEffect() hook. This hook acts as the replacment to componentWillMount() 
+  // function when using class components. By leaving the second argument array 
+  // empty, this method will run once before the initial render.
+  useEffect(() => {
+    fetchMerchantDetails();
+    fetchProducts();
+  }, []);
 
-  componentDidMount() {
-    this.fetchMerchantDetails();
-    this.fetchProducts();
-  }
-
-  fetchMerchantDetails() {
+  /**
+   * Fetch merchant details
+   * https://commercejs.com/docs/sdk/full-sdk-reference#merchants
+   */
+  const fetchMerchantDetails = () => {
     commerce.merchants.about().then((merchant) => {
-      this.setState({ merchant: merchant });
+      setMerchant(merchant);
     }).catch((error) => {
-      console.log('There was an error fetch the merchant details', error)
+      console.log('There was an error fetching the merchant details', error)
     });
   }
 
@@ -32,28 +36,24 @@ class App extends Component {
    * Fetch products data from Chec and stores in the products data object.
    * https://commercejs.com/docs/sdk/products
    */
-  fetchProducts() {
+  const fetchProducts = () => {
     commerce.products.list().then((products) => {
-      this.setState({ products: products.data });
+      setProducts(products.data);
     }).catch((error) => {
-      console.log('There was an error fetching the products', error);
+      console.log('There was an error fetching the products', error)
     });
   }
 
-  render() {
-    const { products, merchant } = this.state;
-
-    return (
-      <div className="app">
-        <Hero
-          merchant={merchant}
-        />
-        <ProductsList 
-          products={products}
-        />
-      </div>
-    );
-  }
+  return (
+    <div className="app">
+      <Hero
+        merchant={merchant}
+      />
+      <ProductsList 
+        products={products}
+      />
+    </div>
+  );
 };
 
 export default App;
